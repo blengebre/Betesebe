@@ -8,3 +8,5 @@ streamlit==1.28.1
 groq==0.4.1
 google-generativeai==0.3.0
 duckduckgo-search==3.9.10
+flask==3.0.3
+flask-cors==4.0.0

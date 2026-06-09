@@ -1,165 +1,131 @@
 """
-Internal Debate Agents for Project Consensus
-Implements the Researcher, Statistician, Critic, and Judge agents
+Iterative Deep Search Agents
+Implements the Researcher (Sub-Question Generator) and Judge (Paper Synthesizer)
 """
-import asyncio
+import re
 from typing import List, Dict
 from api_wrappers import groq, gemini
 
 
 class ResearcherAgent:
     """
-    Lead Researcher Agent - Extracts verified facts from web search results
+    Lead Researcher Agent - Deconstructs a complex topic into sub-questions.
     """
-    
-    system_prompt = """You are the Lead Researcher. You have been provided with live web search results. 
-Your job is to extract the core, verified facts from these search results and summarize them. 
-Ignore opinions; focus only on data, dates, and verifiable claims. 
-Output a concise bulleted list of facts. Keep response under 200 words."""
-    
-    async def analyze(self, search_results: List[Dict]) -> str:
-        """Analyze web search results and extract facts"""
-        if not search_results:
-            return "No search results available."
-        
+
+    system_prompt = """You are the Lead Academic Researcher for an elite intelligence and research agency.
+Your goal is to deconstruct a complex topic into highly specific, academic sub-questions that must be answered to write a comprehensive research paper."""
+
+    async def generate_sub_questions(self, user_query: str, initial_search_results: List[Dict]) -> List[str]:
+        """Generate specific sub-questions based on initial broad search results."""
+        if not initial_search_results:
+            initial_search_results = [{"title": "No data", "content": "Initial search yielded no results."}]
+
         results_text = "\n".join([
             f"- {r.get('title', '')}: {r.get('content', '')}"
-            for r in search_results if r.get('title') or r.get('content')
+            for r in initial_search_results if r.get('title') or r.get('content')
         ])
-        
-        prompt = f"""Please analyze these search results and extract verified facts:
 
+        prompt = f"""**User's Core Topic:** "{user_query}"
+
+**Initial Broad Search Results:**
 {results_text}
 
-Provide only factual information, dates, and verifiable claims."""
-        
+**Instructions:**
+Based on the initial search results and the core topic, break down the user's main question into exactly 3 to 4 highly specific, academic sub-questions. These sub-questions should target the missing details, underlying mechanics, and complex nuances of the topic.
+
+Do NOT answer the questions. Only output the 3-4 questions. Format your output as a simple numbered list."""
+
         response = await groq.query(prompt, self.system_prompt)
-        return response
-
-
-class StatisticianAgent:
-    """
-    Lead Statistician Agent - Checks for logical/mathematical errors in LLM responses
-    """
-    
-    system_prompt = """You are the Lead Statistician and Logic Checker. 
-You have been provided with answers from three external AI models. 
-Your job is to scan their answers for logical fallacies, mathematical errors, or contradictory statements. 
-Point out exactly which model made which error. If the data looks solid, state that. 
-Keep response under 200 words."""
-    
-    async def analyze(self, model_responses: Dict[str, str]) -> str:
-        """Analyze responses from external models for logical errors"""
-        responses_text = "\n".join([
-            f"{model}: {response[:500]}"
-            for model, response in model_responses.items()
-        ])
         
-        prompt = f"""Please analyze these responses for logical errors, contradictions, or mathematical mistakes:
-
-{responses_text}
-
-Identify which model (if any) has errors and explain them."""
+        # Parse the numbered list
+        questions = []
+        for line in response.split('\n'):
+            line = line.strip()
+            # Match lines starting with a number and a dot/parenthesis
+            match = re.match(r'^\d+[\.\)]\s*(.*)', line)
+            if match:
+                q = match.group(1).strip()
+                # strip asterisks just in case
+                q = q.replace("**", "").replace("*", "")
+                if q:
+                    questions.append(q)
         
-        response = await groq.query(prompt, self.system_prompt)
-        return response
-
-
-class CriticAgent:
-    """
-    Lead Peer-Review Critic - Identifies hallucinations and compares against facts
-    """
-    
-    system_prompt = """You are the Lead Peer-Review Critic. You are highly skeptical. 
-Compare the external AI answers against the verified facts provided by the Researcher. 
-Identify any hallucinations, outdated information, or biases. 
-Explicitly state which AI model provided the most accurate answer and which provided the worst. 
-Keep response under 200 words."""
-    
-    async def analyze(self, model_responses: Dict[str, str], verified_facts: str) -> str:
-        """Critique external model responses against verified facts"""
-        responses_text = "\n".join([
-            f"{model}: {response[:400]}"
-            for model, response in model_responses.items()
-        ])
-        
-        prompt = f"""Compare these model responses against the verified facts and identify issues:
-
-Model Responses:
-{responses_text}
-
-Verified Facts:
-{verified_facts}
-
-Identify hallucinations, inaccuracies, and which model is most reliable."""
-        
-        response = await groq.query(prompt, self.system_prompt)
-        return response
+        # Fallback if regex parsing fails
+        if not questions:
+            questions = [q.strip().replace("**", "") for q in response.split('\n') if q.strip() and len(q) > 10][:4]
+            
+        return questions
 
 
 class JudgeAgent:
     """
-    Chief Scientific Officer / Judge Agent - Synthesizes everything into final Research Note
+    Chief Scientific Officer / Judge Agent - Synthesizes everything into a comprehensive Research Paper
+    Uses gemini-2.0-flash with a dedicated system_prompt for richer, structured output.
     """
-    
-    system_prompt = """You are the Chief Scientific Officer. 
-You have reviewed the user's prompt, answers from 3 external AIs, live web search facts, 
-and a debate transcript from internal peer-review agents (Researcher, Statistician, Critic).
 
-Generate a final 'Research Note' for the user in the following Markdown format:
+    system_prompt = """You are the Chief Scientific Officer and Lead Author. You will receive a comprehensive set of verified web data along with deep analytical breakdowns from three Expert AI Analysts. 
 
-# 📄 RESEARCH NOTE: [Topic Name]
+Act as a Lead Academic Researcher. Using ONLY the provided debate transcripts and verified web data, write a comprehensive, multi-section Research Paper. 
 
-### 1. Executive Summary
-[3-4 sentences summarizing the final, synthesized truth.]
+You MUST format the Research Paper EXACTLY with these sections (use Markdown headers):
 
-### 2. Confidence Assessment
-Confidence Score: [X]/100
-Justification: [Explain exactly why you gave this score based on model consensus, fact-checking, and the debate.]
+# 📄 DEEP RESEARCH PAPER: [Insert Topic Name]
 
-### 3. Comprehensive Analysis
-[Break the topic down into 2-3 detailed sub-sections. Synthesize the best data from the models and the web search.]
+### 1. Abstract
+[Provide a high-level summary of the entire paper's findings in 1-2 paragraphs.]
 
-### 4. Points of Contention & Resolutions
-[Highlight where the external models disagreed. Explain how the internal agents resolved it.]
+### 2. Introduction & Context
+[Explain the background, why this topic matters, and the current landscape.]
 
-### 5. Limitations & Blind Spots
-[State what is still unknown, unverified, or where the web search lacked data.]
+### 3. Methodology & Data Landscape
+[Briefly summarize the breadth of data gathered and identify any limitations in the available web data.]
 
-Write in a highly professional, objective, and detailed tone."""
-    
+### 4. Deep Analysis
+[This is the core of the paper. Break this down into 3+ subheadings based on the sub-questions researched. Synthesize the facts, dates, and statistics.]
+
+### 5. Points of Contention & AI Debate
+[Detail where the 3 Expert AI Analysts disagreed in their interpretations of the data, or where the data itself is contradictory.]
+
+### 6. Conclusion
+[Deliver a final, synthesized verdict on the topic.]
+
+### 7. References
+[Provide a formatted, bulleted list of URLs and sources used in the research.]"""
+
     async def generate_research_note(
         self,
         user_prompt: str,
-        model_responses: Dict[str, str],
-        verified_facts: str,
-        researcher_analysis: str,
-        statistician_analysis: str,
-        critic_analysis: str
+        massive_dossier: str,
+        gemini_analysis: str,
+        groq_analysis: str,
+        openrouter_analysis: str
     ) -> str:
-        """Generate final Research Note with all information"""
-        
-        full_context = f"""
-User Query: {user_prompt}
+        """Generate final Research Paper using the deep search dossier and 3 expert analyses"""
 
-External Model Responses:
-{chr(10).join([f"- {model}: {resp[:300]}" for model, resp in model_responses.items()])}
+        full_context = f"""**Core Topic:** "{user_prompt}"
 
-Verified Web Search Facts:
-{verified_facts}
+**Verified Web Data (The Deep Search Dossier):**
+{massive_dossier}
 
-Internal Debate Transcripts:
-- Researcher: {researcher_analysis[:300]}
-- Statistician: {statistician_analysis[:300]}
-- Critic: {critic_analysis[:300]}
-"""
-        
-        response = await gemini.query(full_context)
+**Expert Analyst 1 (Gemini):**
+{gemini_analysis}
+
+**Expert Analyst 2 (Groq):**
+{groq_analysis}
+
+**Expert Analyst 3 (OpenRouter):**
+{openrouter_analysis}
+
+Now, write the final Deep Research Paper."""
+
+        response = await gemini.query(
+            full_context,
+            system_prompt=self.system_prompt,
+            use_judge_model=True
+        )
         return response
 
 
 # Initialize agents
 researcher = ResearcherAgent()
-statistician = StatisticianAgent()
-critic = CriticAgent()
 judge = JudgeAgent()

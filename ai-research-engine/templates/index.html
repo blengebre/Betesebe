@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deep Research Engine — Multi-Agent AI Research</title>
+  <meta name="description" content="AI-powered multi-agent research engine that synthesizes information from multiple LLMs, web search, and peer-review debate into a professional Research Note." />
+  <link rel="stylesheet" href="/static/style.css" />
+  <!-- Marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+
+  <!-- ============================================================= -->
+  <!-- Hero                                                           -->
+  <!-- ============================================================= -->
+  <header class="hero">
+    <div class="hero__badge">⚛ Multi-Agent Research</div>
+    <h1 class="hero__title">Deep Research Engine</h1>
+    <p class="hero__tagline">
+      Ask anything. Three AI models answer. Internal agents debate.
+      A judge synthesizes the truth.<span class="hero__cursor"></span>
+    </p>
+
+    <form id="search-form" class="search-form" autocomplete="off">
+      <label for="query-input" class="sr-only">Research query</label>
+      <input
+        id="query-input"
+        class="search-form__input"
+        type="text"
+        placeholder="e.g. Is nuclear fusion viable by 2035?"
+        required
+      />
+      <button id="submit-btn" class="search-form__btn" type="submit">Research</button>
+    </form>
+  </header>
+
+  <!-- ============================================================= -->
+  <!-- Phase Tracker                                                  -->
+  <!-- ============================================================= -->
+  <section id="phases" class="phases" aria-label="Pipeline phases">
+    <p class="phases__title">Pipeline Progress</p>
+    <div class="phases__grid">
+
+      <div class="phase-card" data-phase="1">
+        <div class="phase-card__icon">1</div>
+        <div>
+          <div class="phase-card__label">Data Gathering</div>
+          <div class="phase-card__time"></div>
+        </div>
+      </div>
+
+      <div class="phase-card" data-phase="2">
+        <div class="phase-card__icon">2</div>
+        <div>
+          <div class="phase-card__label">Peer Review Debate</div>
+          <div class="phase-card__time"></div>
+        </div>
+      </div>
+
+      <div class="phase-card" data-phase="3">
+        <div class="phase-card__icon">3</div>
+        <div>
+          <div class="phase-card__label">Judge Synthesis</div>
+          <div class="phase-card__time"></div>
+        </div>
+      </div>
+
+      <div class="phase-card" data-phase="4">
+        <div class="phase-card__icon">4</div>
+        <div>
+          <div class="phase-card__label">Complete</div>
+          <div class="phase-card__time"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- Model Badges                                                   -->
+  <!-- ============================================================= -->
+  <section id="models" class="models" aria-label="AI models">
+    <div class="models__row">
+      <div class="model-badge" data-model="gemini">
+        <span class="model-badge__dot"></span> Gemini 1.5-Flash
+      </div>
+      <div class="model-badge" data-model="groq">
+        <span class="model-badge__dot"></span> Groq Llama-3.3-70B
+      </div>
+      <div class="model-badge" data-model="openrouter">
+        <span class="model-badge__dot"></span> OpenRouter Llama-3.1-8B
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- Agent Activity Feed                                            -->
+  <!-- ============================================================= -->
+  <section id="feed" class="feed" aria-label="Agent activity">
+    <div id="feed-panel" class="feed__panel glass"></div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- Result Section                                                 -->
+  <!-- ============================================================= -->
+  <section id="result" class="result" aria-label="Research result">
+
+    <!-- Confidence Gauge -->
+    <div class="gauge">
+      <div class="gauge__ring-wrap">
+        <svg viewBox="0 0 150 150">
+          <defs>
+            <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#7c3aed" />
+              <stop offset="100%" stop-color="#2563eb" />
+            </linearGradient>
+          </defs>
+          <circle class="gauge__track"    cx="75" cy="75" r="65" />
+          <circle class="gauge__progress" cx="75" cy="75" r="65" id="gauge-progress" />
+        </svg>
+        <div class="gauge__label" id="gauge-label">0<small>/100</small></div>
+      </div>
+      <div class="gauge__caption">Confidence Score</div>
+    </div>
+
+    <!-- Timing Bar -->
+    <div class="timing-bar">
+      <div class="timing-bar__item">
+        <div class="timing-bar__value" id="timing-p1">—</div>
+        <div class="timing-bar__label">Data Gathering</div>
+      </div>
+      <div class="timing-bar__item">
+        <div class="timing-bar__value" id="timing-p2">—</div>
+        <div class="timing-bar__label">Debate</div>
+      </div>
+      <div class="timing-bar__item">
+        <div class="timing-bar__value" id="timing-p3">—</div>
+        <div class="timing-bar__label">Judgment</div>
+      </div>
+      <div class="timing-bar__item">
+        <div class="timing-bar__value" id="timing-total">—</div>
+        <div class="timing-bar__label">Total</div>
+      </div>
+    </div>
+
+    <!-- Research Note -->
+    <article id="note-content" class="note glass"></article>
+
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- Error Card                                                     -->
+  <!-- ============================================================= -->
+  <div id="error-card" class="error-card glass" role="alert">
+    <div class="error-card__icon">⚠️</div>
+    <div class="error-card__title">Something went wrong</div>
+    <div class="error-card__msg" id="error-msg">An unexpected error occurred.</div>
+    <button id="retry-btn" class="error-card__btn">Try Again</button>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- Footer                                                         -->
+  <!-- ============================================================= -->
+  <footer class="footer">
+    Deep Research Engine — Multi-Agent AI Research Pipeline
+  </footer>
+
+</body>
+</html>
